@@ -3,6 +3,7 @@
 #include <PubSubClient.h>
 #include "config.h"
 #include "debug.h"
+#include <Preferences.h>
 
 // Pins for SN74HC595 shift registers
 const uint8_t DATA_PIN = 14;
@@ -18,6 +19,12 @@ static bool zoneState[NUM_ZONES] = {false};
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
+
+Preferences prefs;
+
+const unsigned long SAVE_INTERVAL_MS = 30000;
+unsigned long lastChangeTime = 0;
+bool stateChanged = false;
 
 void writeShiftRegister() {
     digitalWrite(LATCH_PIN, LOW);
@@ -37,6 +44,31 @@ bool coilOnForOpen() { return COIL_ON_FOR_OPEN != 0; }
 
 bool coilStateForZone(bool open) {
     return open ? coilOnForOpen() : !coilOnForOpen();
+}
+
+uint16_t zoneStateToBits() {
+    uint16_t val = 0;
+    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+        if (zoneState[i])
+            val |= (1 << i);
+    }
+    return val;
+}
+
+void bitsToZoneState(uint16_t bits) {
+    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+        zoneState[i] = bits & (1 << i);
+    }
+}
+
+void loadState() {
+    uint16_t bits = prefs.getUShort("state", 0);
+    bitsToZoneState(bits);
+}
+
+void saveState() {
+    uint16_t bits = zoneStateToBits();
+    prefs.putUShort("state", bits);
 }
 
 void publishZoneState(uint8_t zone) {
@@ -136,6 +168,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
         if (zone >= 1 && zone <= NUM_ZONES) {
             bool newState = msg.equalsIgnoreCase("ON") || msg.equalsIgnoreCase("OPEN");
             zoneState[zone - 1] = newState;
+            stateChanged = true;
+            lastChangeTime = millis();
             applyZones();
         }
     }
@@ -175,6 +209,9 @@ void setup() {
     Serial.begin(115200);
     DEBUG_PRINTLN("Setup starting...");
 
+    prefs.begin("zones", false);
+    loadState();
+
     pinMode(DATA_PIN, OUTPUT);
     pinMode(CLOCK_PIN, OUTPUT);
     pinMode(LATCH_PIN, OUTPUT);
@@ -188,14 +225,13 @@ void setup() {
     shiftState = 0x0000;
     writeShiftRegister();
 
-    for (uint8_t i = 0; i < NUM_ZONES; ++i)
-        zoneState[i] = false; // default open
 
     connectWifi();
 
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
     mqttClient.setCallback(mqttCallback);
     reconnectMqtt();
+    applyZones();
 }
 
 void loop() {
@@ -203,5 +239,10 @@ void loop() {
         reconnectMqtt();
     }
     mqttClient.loop();
+
+    if (stateChanged && millis() - lastChangeTime >= SAVE_INTERVAL_MS) {
+        saveState();
+        stateChanged = false;
+    }
 }
 
