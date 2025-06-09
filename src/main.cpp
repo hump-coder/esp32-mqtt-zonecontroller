@@ -10,8 +10,8 @@ const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
 
-// internal state of shift register (active low relays)
-static uint16_t shiftState = 0xFFFF; // all off (HIGH)
+// internal state of shift register (active high relays)
+static uint16_t shiftState = 0x0000; // all off (LOW)
 
 // desired zone states (true=open, false=closed)
 static bool zoneState[NUM_ZONES];
@@ -28,9 +28,9 @@ void writeShiftRegister() {
 
 void setRelay(uint8_t index, bool active) {
     if (active)
-        shiftState &= ~(1 << index); // active low
+        shiftState |= (1 << index); // active high
     else
-        shiftState |= (1 << index);
+        shiftState &= ~(1 << index);
 }
 
 bool coilOnForOpen() { return COIL_ON_FOR_OPEN != 0; }
@@ -163,7 +163,7 @@ void setup() {
     pinMode(OE_PIN, OUTPUT);
     digitalWrite(OE_PIN, LOW); // enable outputs
 
-    shiftState = 0xFFFF;
+    shiftState = 0x0000;
     writeShiftRegister();
 
     for (uint8_t i = 0; i < NUM_ZONES; ++i)
