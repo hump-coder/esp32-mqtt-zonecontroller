@@ -18,4 +18,7 @@
 #define COIL_ON_FOR_OPEN 0 // 1 if relay coil should be energized when zone is open
 #define ZONE_PULSE_MS 3000
 
+// Set to 0 to disable physical relay activation for testing
+#define ACTUATE_RELAYS 1
+
 #endif // CONFIG_H
