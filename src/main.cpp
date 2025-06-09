@@ -26,6 +26,10 @@ const unsigned long SAVE_INTERVAL_MS = 30000;
 unsigned long lastChangeTime = 0;
 bool stateChanged = false;
 
+// Track current pulse status for master and zone relays
+bool pulseActive = false;
+unsigned long pulseStartTime = 0;
+
 void writeShiftRegister() {
     digitalWrite(LATCH_PIN, LOW);
     shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (shiftState >> 8) & 0xFF);
@@ -119,25 +123,29 @@ void applyZones() {
 #if ACTUATE_RELAYS
     writeShiftRegister();
 
-    // master relay on
+    // ensure master relay is on and start/extend pulse timer
     setRelay(MASTER_RELAY_INDEX, true);
     writeShiftRegister();
-    delay(ZONE_PULSE_MS);
-
-    // master relay off
-    setRelay(MASTER_RELAY_INDEX, false);
-    writeShiftRegister();
-
-    // disable zone relays
-    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
-        setRelay(i, false);
-    }
-    writeShiftRegister();
+    pulseActive = true;
+    pulseStartTime = millis();
 #else
     DEBUG_PRINTLN(" (dry run - relays not actuated)");
 #endif
 
    // publishAllStates();
+}
+
+void updatePulse() {
+#if ACTUATE_RELAYS
+    if (pulseActive && millis() - pulseStartTime >= ZONE_PULSE_MS) {
+        setRelay(MASTER_RELAY_INDEX, false);
+        for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+            setRelay(i, false);
+        }
+        writeShiftRegister();
+        pulseActive = false;
+    }
+#endif
 }
 
 void sendDiscovery() {
@@ -247,6 +255,7 @@ void loop() {
         reconnectMqtt();
     }
     mqttClient.loop();
+    updatePulse();
 
     if (stateChanged && millis() - lastChangeTime >= SAVE_INTERVAL_MS) {
         saveState();
