@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include "config.h"
+#include "debug.h"
 
 // Pins for SN74HC595 shift registers
 const uint8_t DATA_PIN = 14;
@@ -51,9 +52,12 @@ void publishAllStates() {
 }
 
 void applyZones() {
+    DEBUG_PRINT("Applying zones: ");
     for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+        DEBUG_PRINT(zoneState[i] ? "1" : "0");
         setRelay(i, coilStateForZone(zoneState[i]));
     }
+    DEBUG_PRINTLN("");
     writeShiftRegister();
 
     // master relay on
@@ -96,6 +100,10 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
     for (unsigned int i = 0; i < length; ++i) {
         msg += (char)payload[i];
     }
+    DEBUG_PRINT("Message received [");
+    DEBUG_PRINT(topic);
+    DEBUG_PRINT("] ");
+    DEBUG_PRINTLN(msg);
     String t(topic);
     String prefix = String(BASE_TOPIC) + "/zone";
     if (t.startsWith(prefix) && t.endsWith("/set")) {
@@ -110,27 +118,37 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
 
 void reconnectMqtt() {
     while (!mqttClient.connected()) {
+        DEBUG_PRINT("Attempting MQTT connection...");
         if (mqttClient.connect(DEVICE_NAME, MQTT_USER, MQTT_PASSWORD)) {
+            DEBUG_PRINTLN("connected");
             String sub = String(BASE_TOPIC) + "/+/set";
             mqttClient.subscribe(sub.c_str());
             sendDiscovery();
             publishAllStates();
         } else {
+            DEBUG_PRINT("failed, rc=");
+            DEBUG_PRINTLN(mqttClient.state());
             delay(5000);
         }
     }
 }
 
 void connectWifi() {
+    DEBUG_PRINT("Connecting to WiFi");
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
+        DEBUG_PRINT(".");
     }
+    DEBUG_PRINTLN(" connected");
+    DEBUG_PRINT("IP address: ");
+    DEBUG_PRINTLN(WiFi.localIP());
 }
 
 void setup() {
     Serial.begin(115200);
+    DEBUG_PRINTLN("Setup starting...");
 
     pinMode(DATA_PIN, OUTPUT);
     pinMode(CLOCK_PIN, OUTPUT);
