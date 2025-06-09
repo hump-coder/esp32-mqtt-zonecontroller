@@ -55,9 +55,13 @@ void applyZones() {
     DEBUG_PRINT("Applying zones: ");
     for (uint8_t i = 0; i < NUM_ZONES; ++i) {
         DEBUG_PRINT(zoneState[i] ? "1" : "0");
+#if ACTUATE_RELAYS
         setRelay(i, coilStateForZone(zoneState[i]));
+#endif
     }
     DEBUG_PRINTLN("");
+
+#if ACTUATE_RELAYS
     writeShiftRegister();
 
     // master relay on
@@ -74,6 +78,9 @@ void applyZones() {
         setRelay(i, false);
     }
     writeShiftRegister();
+#else
+    DEBUG_PRINTLN(" (dry run - relays not actuated)");
+#endif
 
     publishAllStates();
 }
