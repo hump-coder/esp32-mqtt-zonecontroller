@@ -14,7 +14,7 @@ const uint8_t OE_PIN = 5; // active low
 static uint16_t shiftState = 0x0000; // all off (LOW)
 
 // desired zone states (true=open, false=closed)
-static bool zoneState[NUM_ZONES];
+static bool zoneState[NUM_ZONES] = {false};
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
@@ -43,12 +43,27 @@ void publishZoneState(uint8_t zone) {
     char topic[64];
     snprintf(topic, sizeof(topic), "%s/zone%u/state", BASE_TOPIC, zone + 1);
     mqttClient.publish(topic, zoneState[zone] ? "ON" : "OFF", true);
+
+//    DEBUG_PRINT("sending zoneState:");
+//    DEBUG_PRINT(zone + 1);
+//    DEBUG_PRINT("=");
+//    DEBUG_PRINTLN(zoneState[zone] ? "ON" : "OFF");
+
 }
 
 void publishAllStates() {
     for (uint8_t i = 0; i < NUM_ZONES; ++i) {
         publishZoneState(i);
     }
+}
+
+
+void printZoneState() {
+    DEBUG_PRINT("Zones state: ");
+    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+        DEBUG_PRINT(zoneState[i] ? "1" : "0");
+    }
+    DEBUG_PRINTLN("");
 }
 
 void applyZones() {
@@ -86,6 +101,7 @@ void applyZones() {
 }
 
 void sendDiscovery() {
+    DEBUG_PRINT("Sending discovery messages...");
     for (uint8_t i = 0; i < NUM_ZONES; ++i) {
         char topic[128];
         snprintf(topic, sizeof(topic),
@@ -98,6 +114,8 @@ void sendDiscovery() {
                  "\"payload_on\":\"ON\",\"payload_off\":\"OFF\"}",
                  i + 1, BASE_TOPIC, i + 1, BASE_TOPIC, i + 1,
                  DEVICE_NAME, i + 1);
+        DEBUG_PRINT("sending payload: ");
+        DEBUG_PRINTLN(payload);
         mqttClient.publish(topic, payload, true);
     }
 }
@@ -160,6 +178,10 @@ void setup() {
     pinMode(DATA_PIN, OUTPUT);
     pinMode(CLOCK_PIN, OUTPUT);
     pinMode(LATCH_PIN, OUTPUT);
+    
+    shiftState = 0x0000;
+    writeShiftRegister();
+
     pinMode(OE_PIN, OUTPUT);
     digitalWrite(OE_PIN, LOW); // enable outputs
 
@@ -167,7 +189,7 @@ void setup() {
     writeShiftRegister();
 
     for (uint8_t i = 0; i < NUM_ZONES; ++i)
-        zoneState[i] = true; // default open
+        zoneState[i] = false; // default open
 
     connectWifi();
 
