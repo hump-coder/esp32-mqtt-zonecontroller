@@ -61,14 +61,28 @@ void bitsToZoneState(uint16_t bits) {
     }
 }
 
+
+void printZoneState() {
+    DEBUG_PRINT("Zones state: ");
+    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
+        DEBUG_PRINT(zoneState[i] ? "1" : "0");
+    }
+    DEBUG_PRINTLN("");
+}
+
+
 void loadState() {
     uint16_t bits = prefs.getUShort("state", 0);
     bitsToZoneState(bits);
+    DEBUG_PRINT("Loaded state: ");
+    printZoneState();
 }
 
 void saveState() {
     uint16_t bits = zoneStateToBits();
     prefs.putUShort("state", bits);
+    DEBUG_PRINT("Saved state: ");
+    printZoneState();
 }
 
 void publishZoneState(uint8_t zone) {
@@ -90,14 +104,6 @@ void publishAllStates() {
 }
 
 
-void printZoneState() {
-    DEBUG_PRINT("Zones state: ");
-    for (uint8_t i = 0; i < NUM_ZONES; ++i) {
-        DEBUG_PRINT(zoneState[i] ? "1" : "0");
-    }
-    DEBUG_PRINTLN("");
-}
-
 void applyZones() {
     DEBUG_PRINT("Applying zones: ");
     for (uint8_t i = 0; i < NUM_ZONES; ++i) {
@@ -107,6 +113,8 @@ void applyZones() {
 #endif
     }
     DEBUG_PRINTLN("");
+    
+    publishAllStates();
 
 #if ACTUATE_RELAYS
     writeShiftRegister();
@@ -129,7 +137,7 @@ void applyZones() {
     DEBUG_PRINTLN(" (dry run - relays not actuated)");
 #endif
 
-    publishAllStates();
+   // publishAllStates();
 }
 
 void sendDiscovery() {
