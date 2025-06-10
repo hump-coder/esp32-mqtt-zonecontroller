@@ -244,33 +244,42 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
     }
 }
 
-void reconnectMqtt() {
-   // while (!mqttClient.connected() && WiFi.isConnected()) {
-        DEBUG_PRINT("Attempting MQTT connection...");
-        if (mqttClient.connect(iotWebConf.getThingName(), mqttUser, mqttPass)) {
-            DEBUG_PRINTLN("connected");
-            String sub = String(baseTopic) + "/+/set";
-            mqttClient.subscribe(sub.c_str());
-            sendDiscovery();
-            publishAllStates();
-        } else {
-            DEBUG_PRINT("failed, rc=");
-            DEBUG_PRINTLN(mqttClient.state());
-            delay(100);
-        }
-   // }
-}
+unsigned long lastMqttAttempt = 0;
+bool connectMqtt() {
+    if (mqttClient.connected()) return true;
 
-bool isWifiConnected = false;
+    if (iotWebConf.getState() != iotwebconf::OnLine) {
+        return false;
+    }
+
+    unsigned long now = millis();
+    if (now - lastMqttAttempt < 1000) {
+        return false; // limit reconnection attempts
+    }
+    lastMqttAttempt = now;
+
+    DEBUG_PRINT("Attempting MQTT connection...");
+    if (mqttClient.connect(iotWebConf.getThingName(), mqttUser, mqttPass)) {
+        DEBUG_PRINTLN("connected");
+        String sub = String(baseTopic) + "/+/set";
+        mqttClient.subscribe(sub.c_str());
+        sendDiscovery();
+        publishAllStates();
+        return true;
+    } else {
+        DEBUG_PRINT("failed, rc=");
+        DEBUG_PRINTLN(mqttClient.state());
+        return false;
+    }
+}
 
 void wifiConnected() {
     DEBUG_PRINT("WiFi connected IP: ");
     DEBUG_PRINTLN(WiFi.localIP());
     mqttClient.setServer(mqttServer, atoi(mqttPort));
     mqttClient.setCallback(mqttCallback);
-    reconnectMqtt();
+    connectMqtt();
   //  applyZones();
-    isWifiConnected = true;
 }
 
 void configSaved() {
@@ -345,11 +354,11 @@ void loop() {
 
     iotWebConf.doLoop();
 
-    if(isWifiConnected)
+    if (iotWebConf.getState() == iotwebconf::OnLine)
     {
-        if (!mqttClient.connected()) 
+        if (!mqttClient.connected())
         {
-            reconnectMqtt();
+            connectMqtt();
         }
         else
         {
