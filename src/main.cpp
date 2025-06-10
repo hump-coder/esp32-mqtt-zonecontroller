@@ -326,6 +326,10 @@ void setup() {
     prefs.begin("zones", false);
     loadState();
 
+    //
+    // Apply zones now don't wait for network or mqtt connections.
+    // we just want to restore the previous state as quickly as we can.
+    //
     stateChanged = true;
     lastChangeTime = millis();
     applyZones();
