@@ -25,9 +25,11 @@ static bool zoneState[MAX_ZONES] = {false};
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-const char THING_NAME[] = "zone-controller";
+#define DEVICE_NAME "test-zone-controller"
+
+const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
-const char CONFIG_VERSION[] = "d1";
+const char CONFIG_VERSION[] = "e1";
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -37,11 +39,11 @@ char mqttServer[32] = "192.168.50.11";
 char mqttPort[6] = "1883";
 char mqttUser[32] = "rinnai";
 char mqttPass[32] = "rinnai";
-char baseTopic[IOTWEBCONF_WORD_LEN] = "zone-controller";
+char baseTopic[IOTWEBCONF_WORD_LEN] = DEVICE_NAME;
 char numZonesStr[4] = "0";
 char pulseSecondsStr[6] = "30";
 char defaultZoneStr[4] = "0";
-char invertRelaysValue[2] = "0";
+char invertRelaysValue[IOTWEBCONF_WORD_LEN] = "selected";
 
 IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer), mqttServer, mqttServer);
 IotWebConfNumberParameter mqttPortParam("MQTT Port", "mqttPort", mqttPort, sizeof(mqttPort), "1883", "1..65535", "min='1' max='65535' step='1'");
@@ -51,7 +53,7 @@ IotWebConfTextParameter baseTopicParam("Base Topic", "baseTopic", baseTopic, siz
 IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr, sizeof(numZonesStr), "0", "0..15", "min='0' max='15'");
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfNumberParameter defaultZoneParam("Default Zone", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "0", "0..15", "min='0' max='15'");
-IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), false);
+IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
 
 uint8_t numZones = 0;
 unsigned long zonePulseMs = 30000;
@@ -121,6 +123,7 @@ void updateConfigVariables() {
     if (numZones > MAX_ZONES) numZones = MAX_ZONES;
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
+    DEBUG_PRINTLN(String("CONFIG INVERTED: ") + (coilOnForOpenFlag ? "true" : "false"));
 }
 
 
