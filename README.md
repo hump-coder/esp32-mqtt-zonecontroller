@@ -53,6 +53,18 @@ pio device monitor # optional serial monitor
 
 The project targets the `esp32dev` board using the Arduino framework. See `platformio.ini` for details.
 
+### OTA Updates
+
+After the device is connected to Wi‑Fi, it exposes an Arduino OTA service using
+its configured device name. You can upload firmware over the network using
+PlatformIO:
+
+```
+pio run -t upload --upload-port <device-hostname>.local
+```
+
+Replace `<device-hostname>` with the value shown in the configuration interface.
+
 ## Configuration
 
 On first boot (or when the config button is held) the controller starts an access point named `zone-controller` with password `zonezone`. Browse to `/config` to enter Wi‑Fi credentials, MQTT broker information, number of zones, master pulse length and other options. Settings are saved in flash and restored on reboot.
