@@ -27,33 +27,27 @@ PubSubClient mqttClient(wifiClient);
 
 const char THING_NAME[] = "zone-controller";
 const char INITIAL_AP_PASSWORD[] = "zonezone";
-const char CONFIG_VERSION[] = "z1";
+const char CONFIG_VERSION[] = "b1";
 
 DNSServer dnsServer;
 WebServer server(80);
 IotWebConf iotWebConf(THING_NAME, &dnsServer, &server, INITIAL_AP_PASSWORD, CONFIG_VERSION);
 
-char apSsid[IOTWEBCONF_WORD_LEN] = "zone-controller";
-char apPassword[IOTWEBCONF_PASSWORD_LEN] = "zonezone";
-char mqttServer[32] = "";
+char mqttServer[32] = "192.168.50.11";
 char mqttPort[6] = "1883";
-char mqttUser[32] = "";
-char mqttPass[32] = "";
-char deviceName[IOTWEBCONF_WORD_LEN] = "zone-controller";
+char mqttUser[32] = "rinnai";
+char mqttPass[32] = "rinnai";
 char baseTopic[IOTWEBCONF_WORD_LEN] = "zone-controller";
 char numZonesStr[4] = "0";
 char pulseSecondsStr[6] = "15";
 char defaultZoneStr[4] = "0";
 char invertRelaysValue[2] = "0";
 
-IotWebConfTextParameter apSsidParam("AP SSID", "apSsid", apSsid, sizeof(apSsid));
-IotWebConfPasswordParameter apPassParam("AP Password", "apPassword", apPassword, sizeof(apPassword));
-IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer));
+IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer), mqttServer, mqttServer);
 IotWebConfNumberParameter mqttPortParam("MQTT Port", "mqttPort", mqttPort, sizeof(mqttPort), "1883", "1..65535", "min='1' max='65535' step='1'");
-IotWebConfTextParameter mqttUserParam("MQTT User", "mqttUser", mqttUser, sizeof(mqttUser));
-IotWebConfPasswordParameter mqttPassParam("MQTT Password", "mqttPassword", mqttPass, sizeof(mqttPass));
-IotWebConfTextParameter deviceNameParam("Device Name", "deviceName", deviceName, sizeof(deviceName));
-IotWebConfTextParameter baseTopicParam("Base Topic", "baseTopic", baseTopic, sizeof(baseTopic));
+IotWebConfTextParameter mqttUserParam("MQTT User", "mqttUser", mqttUser, sizeof(mqttUser), mqttUser, mqttUser);
+IotWebConfPasswordParameter mqttPassParam("MQTT Password", "mqttPassword", mqttPass, sizeof(mqttPass), mqttPass, mqttPass);
+IotWebConfTextParameter baseTopicParam("Base Topic", "baseTopic", baseTopic, sizeof(baseTopic), baseTopic, baseTopic);
 IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr, sizeof(numZonesStr), "0", "0..15", "min='0' max='15'");
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "15", "1..3600", "min='1' max='3600'");
 IotWebConfNumberParameter defaultZoneParam("Default Zone", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "0", "0..15", "min='0' max='15'");
@@ -178,6 +172,7 @@ void applyZones() {
 #if ACTUATE_RELAYS
     writeShiftRegister();
 
+    delay(MASTER_DELAY);
     // ensure master relay is on and start/extend pulse timer
     setRelay(MASTER_RELAY_INDEX, true);
     writeShiftRegister();
@@ -193,10 +188,15 @@ void applyZones() {
 void updatePulse() {
 #if ACTUATE_RELAYS
     if (pulseActive && millis() - pulseStartTime >= zonePulseMs) {
+        
         setRelay(MASTER_RELAY_INDEX, false);
+        writeShiftRegister();
+        delay(MASTER_DELAY);
+
         for (uint8_t i = 0; i < numZones; ++i) {
             setRelay(i, false);
         }
+
         writeShiftRegister();
         pulseActive = false;
     }
@@ -208,13 +208,13 @@ void sendDiscovery() {
     for (uint8_t i = 0; i < numZones; ++i) {
         char topic[128];
         snprintf(topic, sizeof(topic),
-                 "homeassistant/switch/%s/zone%u/config", deviceName, i + 1);
+                 "homeassistant/switch/%s/zone%u/config", iotWebConf.getThingName(), i + 1);
 
         char payload[256];
         snprintf(payload, sizeof(payload),
                 "{\"name\":\"Zone %u\",\"command_topic\":\"%s/zone%u/set\",\"state_topic\":\"%s/zone%u/state\",\"uniq_id\":\"%s_zone%u\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\"}",
                 i + 1, baseTopic, i + 1, baseTopic, i + 1,
-                deviceName, i + 1);
+                iotWebConf.getThingName(), i + 1);
         DEBUG_PRINT("sending payload: ");
         DEBUG_PRINTLN(payload);
         mqttClient.publish(topic, payload, true);
@@ -245,9 +245,9 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
 }
 
 void reconnectMqtt() {
-    while (!mqttClient.connected()) {
+   // while (!mqttClient.connected() && WiFi.isConnected()) {
         DEBUG_PRINT("Attempting MQTT connection...");
-        if (mqttClient.connect(deviceName, mqttUser, mqttPass)) {
+        if (mqttClient.connect(iotWebConf.getThingName(), mqttUser, mqttPass)) {
             DEBUG_PRINTLN("connected");
             String sub = String(baseTopic) + "/+/set";
             mqttClient.subscribe(sub.c_str());
@@ -256,10 +256,12 @@ void reconnectMqtt() {
         } else {
             DEBUG_PRINT("failed, rc=");
             DEBUG_PRINTLN(mqttClient.state());
-            delay(5000);
+            delay(100);
         }
-    }
+   // }
 }
+
+bool isWifiConnected = false;
 
 void wifiConnected() {
     DEBUG_PRINT("WiFi connected IP: ");
@@ -267,16 +269,16 @@ void wifiConnected() {
     mqttClient.setServer(mqttServer, atoi(mqttPort));
     mqttClient.setCallback(mqttCallback);
     reconnectMqtt();
-    applyZones();
+  //  applyZones();
+    isWifiConnected = true;
 }
 
 void configSaved() {
     updateConfigVariables();
-    strncpy((char*)iotWebConf.getThingNameParameter()->valueBuffer, apSsid, IOTWEBCONF_WORD_LEN);
-    strncpy((char*)iotWebConf.getApPasswordParameter()->valueBuffer, apPassword, IOTWEBCONF_PASSWORD_LEN);
 }
 
 void handleRoot() {
+    DEBUG_PRINTLN("HANDLE ROOT - GOT WEB REQUEST");
     if (iotWebConf.handleCaptivePortal()) {
         return;
     }
@@ -288,9 +290,6 @@ void handleRoot() {
 void setup() {
     Serial.begin(115200);
     DEBUG_PRINTLN("Setup starting...");
-
-    prefs.begin("zones", false);
-    loadState();
 
     pinMode(DATA_PIN, OUTPUT);
     pinMode(CLOCK_PIN, OUTPUT);
@@ -305,16 +304,16 @@ void setup() {
     shiftState = 0x0000;
     writeShiftRegister();
 
-    iotWebConf.setConfigPin(4);
+    iotWebConf.skipApStartup();
+    iotWebConf.setConfigPin(23);
     iotWebConf.setWifiConnectionCallback(&wifiConnected);
     iotWebConf.setConfigSavedCallback(&configSaved);
-    iotWebConf.addSystemParameter(&apSsidParam);
-    iotWebConf.addSystemParameter(&apPassParam);
+    iotWebConf.setWifiConnectionTimeoutMs(20000);
     iotWebConf.addSystemParameter(&mqttServerParam);
     iotWebConf.addSystemParameter(&mqttPortParam);
     iotWebConf.addSystemParameter(&mqttUserParam);
     iotWebConf.addSystemParameter(&mqttPassParam);
-    iotWebConf.addSystemParameter(&deviceNameParam);
+
     iotWebConf.addSystemParameter(&baseTopicParam);
     iotWebConf.addSystemParameter(&numZonesParam);
     iotWebConf.addSystemParameter(&pulseSecondsParam);
@@ -322,6 +321,14 @@ void setup() {
     iotWebConf.addSystemParameter(&invertRelaysParam);
     iotWebConf.init();
     updateConfigVariables();
+    
+
+    prefs.begin("zones", false);
+    loadState();
+
+    stateChanged = true;
+    lastChangeTime = millis();
+    applyZones();
 
     server.on("/", handleRoot);
     server.on("/config", []{ iotWebConf.handleConfig(); });
@@ -329,12 +336,24 @@ void setup() {
 }
 
 void loop() {
-    iotWebConf.doLoop();
-    if (!mqttClient.connected()) {
-        reconnectMqtt();
-    }
-    mqttClient.loop();
+
     updatePulse();
+
+    iotWebConf.doLoop();
+
+    if(isWifiConnected)
+    {
+        if (!mqttClient.connected()) 
+        {
+            reconnectMqtt();
+        }
+        else
+        {
+            mqttClient.loop();
+        }
+    }
+
+ 
 
     if (stateChanged && millis() - lastChangeTime >= SAVE_INTERVAL_MS) {
         saveState();

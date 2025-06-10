@@ -9,4 +9,6 @@
 // Set to 0 to disable physical relay activation for testing
 #define ACTUATE_RELAYS 1
 
+#define MASTER_DELAY 100
+
 #endif // CONFIG_H
