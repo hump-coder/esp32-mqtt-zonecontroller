@@ -27,7 +27,7 @@ PubSubClient mqttClient(wifiClient);
 
 const char THING_NAME[] = "zone-controller";
 const char INITIAL_AP_PASSWORD[] = "zonezone";
-const char CONFIG_VERSION[] = "b1";
+const char CONFIG_VERSION[] = "d1";
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -39,7 +39,7 @@ char mqttUser[32] = "rinnai";
 char mqttPass[32] = "rinnai";
 char baseTopic[IOTWEBCONF_WORD_LEN] = "zone-controller";
 char numZonesStr[4] = "0";
-char pulseSecondsStr[6] = "15";
+char pulseSecondsStr[6] = "30";
 char defaultZoneStr[4] = "0";
 char invertRelaysValue[2] = "0";
 
@@ -49,12 +49,12 @@ IotWebConfTextParameter mqttUserParam("MQTT User", "mqttUser", mqttUser, sizeof(
 IotWebConfPasswordParameter mqttPassParam("MQTT Password", "mqttPassword", mqttPass, sizeof(mqttPass), mqttPass, mqttPass);
 IotWebConfTextParameter baseTopicParam("Base Topic", "baseTopic", baseTopic, sizeof(baseTopic), baseTopic, baseTopic);
 IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr, sizeof(numZonesStr), "0", "0..15", "min='0' max='15'");
-IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "15", "1..3600", "min='1' max='3600'");
+IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfNumberParameter defaultZoneParam("Default Zone", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "0", "0..15", "min='0' max='15'");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), false);
 
 uint8_t numZones = 0;
-unsigned long zonePulseMs = 15000;
+unsigned long zonePulseMs = 30000;
 bool coilOnForOpenFlag = true;
 
 Preferences prefs;
