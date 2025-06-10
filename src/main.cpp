@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <Preferences.h>
+
 #include "config.h"
 #include "debug.h"
-#include <Preferences.h>
 
 // Pins for SN74HC595 shift registers
 const uint8_t DATA_PIN = 14;
