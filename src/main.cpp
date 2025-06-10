@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Preferences.h>
+#include <ArduinoOTA.h>
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <IotWebConf.h>
@@ -279,6 +280,8 @@ bool connectMqtt() {
 void wifiConnected() {
     DEBUG_PRINT("WiFi connected IP: ");
     DEBUG_PRINTLN(WiFi.localIP());
+    ArduinoOTA.setHostname(iotWebConf.getThingName());
+    ArduinoOTA.begin();
     mqttClient.setServer(mqttServer, atoi(mqttPort));
     mqttClient.setCallback(mqttCallback);
     connectMqtt();
@@ -354,6 +357,8 @@ void setup() {
 void loop() {
 
     updatePulse();
+
+    ArduinoOTA.handle();
 
     iotWebConf.doLoop();
 
