@@ -16,6 +16,12 @@ const uint8_t DATA_PIN = 14;
 const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
+// Analog pin for ACS712 current sensor
+const uint8_t CURRENT_PIN = 16;
+
+// ACS712 characteristics (adjust as needed)
+const float CURRENT_SENSOR_OFFSET = 1.65; // Volts when no current flows
+const float CURRENT_SENSOR_SENSITIVITY = 0.100; // Volts per Ampere
 
 // internal state of shift register (active high relays)
 static uint16_t shiftState = 0x0000; // all off (LOW)
@@ -70,10 +76,17 @@ bool stateChanged = false;
 bool pulseActive = false;
 unsigned long pulseStartTime = 0;
 
+// Current sensing
+float currentAmps = 0.0;
+unsigned long lastCurrentRead = 0;
+const unsigned long CURRENT_READ_INTERVAL_MS = 1000;
+
 void updateConfigVariables();
 void handleRoot();
 void wifiConnected();
 void configSaved();
+float readCurrent();
+void publishCurrent();
 
 void writeShiftRegister() {
     digitalWrite(LATCH_PIN, LOW);
@@ -207,6 +220,27 @@ void updatePulse() {
 #endif
 }
 
+float readCurrent() {
+    const int samples = 10;
+    long total = 0;
+    for (int i = 0; i < samples; ++i) {
+        total += analogRead(CURRENT_PIN);
+        delay(2);
+    }
+    float average = total / (float)samples;
+    float voltage = (average * 3.3f) / 4095.0f;
+    float amps = (voltage - CURRENT_SENSOR_OFFSET) / CURRENT_SENSOR_SENSITIVITY;
+    return amps;
+}
+
+void publishCurrent() {
+    char topic[64];
+    snprintf(topic, sizeof(topic), "%s/current", baseTopic);
+    char payload[16];
+    dtostrf(currentAmps, 0, 2, payload);
+    mqttClient.publish(topic, payload, true);
+}
+
 void sendDiscovery() {
     DEBUG_PRINT("Sending discovery messages...");
     for (uint8_t i = 0; i < numZones; ++i) {
@@ -223,6 +257,16 @@ void sendDiscovery() {
         DEBUG_PRINTLN(payload);
         mqttClient.publish(topic, payload, true);
     }
+
+    // Discovery for current sensor
+    char curTopic[128];
+    snprintf(curTopic, sizeof(curTopic),
+             "homeassistant/sensor/%s/current/config", iotWebConf.getThingName());
+    char curPayload[256];
+    snprintf(curPayload, sizeof(curPayload),
+             "{\"name\":\"Current\",\"state_topic\":\"%s/current\",\"unit_of_measurement\":\"A\",\"uniq_id\":\"%s_current\"}",
+             baseTopic, iotWebConf.getThingName());
+    mqttClient.publish(curTopic, curPayload, true);
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int length) {
@@ -269,6 +313,7 @@ bool connectMqtt() {
         mqttClient.subscribe(sub.c_str());
         sendDiscovery();
         publishAllStates();
+        publishCurrent();
         return true;
     } else {
         DEBUG_PRINT("failed, rc=");
@@ -318,6 +363,10 @@ void setup() {
 
     shiftState = 0x0000;
     writeShiftRegister();
+
+    pinMode(CURRENT_PIN, INPUT);
+    analogReadResolution(12);
+    analogSetPinAttenuation(CURRENT_PIN, ADC_11db);
 
     iotWebConf.skipApStartup();
     iotWebConf.setConfigPin(23);
@@ -374,7 +423,16 @@ void loop() {
         }
     }
 
- 
+    // Read and publish current periodically
+    if (millis() - lastCurrentRead >= CURRENT_READ_INTERVAL_MS) {
+        currentAmps = readCurrent();
+        if (mqttClient.connected()) {
+            publishCurrent();
+        }
+        lastCurrentRead = millis();
+    }
+
+
 
     if (stateChanged && millis() - lastChangeTime >= SAVE_INTERVAL_MS) {
         saveState();
