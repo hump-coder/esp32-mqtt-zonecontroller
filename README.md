@@ -11,6 +11,7 @@ This project controls multiple zone relays using an ESP32 and MQTT. It is design
 - Adjustable master relay pulse time and option to invert relay logic.
 - State stored in NVS so zones resume their last state after power loss.
 - Dry‑run mode by setting `ACTUATE_RELAYS` to `0` in `include/config.h`.
+- Self‑calibrates its current sensor at boot, so start the controller with no load connected.
 
 ## Hardware
 
