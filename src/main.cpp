@@ -269,6 +269,8 @@ void sendDiscovery() {
     snprintf(curPayload, sizeof(curPayload),
              "{\"name\":\"Current\",\"state_topic\":\"%s/current\",\"unit_of_measurement\":\"A\",\"uniq_id\":\"%s_current\"}",
              baseTopic, iotWebConf.getThingName());
+    DEBUG_PRINT("sending payload: ");
+    DEBUG_PRINTLN(curPayload);             
     mqttClient.publish(curTopic, curPayload, true);
 }
 
