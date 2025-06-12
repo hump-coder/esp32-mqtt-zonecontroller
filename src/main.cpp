@@ -19,9 +19,12 @@ const uint8_t OE_PIN = 5; // active low
 // Analog pin for ACS712 current sensor
 const uint8_t CURRENT_PIN = 16;
 
-// ACS712 characteristics (adjust as needed)
-const float CURRENT_SENSOR_OFFSET = 1.65; // Volts when no current flows
-const float CURRENT_SENSOR_SENSITIVITY = 0.100; // Volts per Ampere
+// ACS712 characteristics (adjusted for 2k/3.3k level shifter)
+// The resistor divider scales the sensor output by R2/(R1+R2) which is
+// 3.3k / (2k + 3.3k) ≈ 0.62.  With the sensor centered at 2.5V and
+// 100mV/A sensitivity, the ESP32 sees roughly 1.56V offset and 62mV/A.
+const float CURRENT_SENSOR_OFFSET = 1.56; // Volts when no current flows
+const float CURRENT_SENSOR_SENSITIVITY = 0.062; // Volts per Ampere
 
 // internal state of shift register (active high relays)
 static uint16_t shiftState = 0x0000; // all off (LOW)
