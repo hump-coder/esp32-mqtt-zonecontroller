@@ -26,6 +26,9 @@ const uint8_t CURRENT_PIN = 35;
 const float CURRENT_SENSOR_OFFSET = 1.56; // Volts when no current flows
 const float CURRENT_SENSOR_SENSITIVITY = 0.062; // Volts per Ampere
 
+// Measured offset in volts after calibration
+float currentSensorOffset = CURRENT_SENSOR_OFFSET;
+
 // internal state of shift register (active high relays)
 static uint16_t shiftState = 0x0000; // all off (LOW)
 
@@ -232,7 +235,7 @@ float readCurrent() {
     }
     float average = total / (float)samples;
     float voltage = (average * 3.3f) / 4095.0f;
-    float amps = (voltage - CURRENT_SENSOR_OFFSET) / CURRENT_SENSOR_SENSITIVITY;
+    float amps = (voltage - currentSensorOffset) / CURRENT_SENSOR_SENSITIVITY;
     return amps;
 }
 
@@ -372,6 +375,17 @@ void setup() {
     pinMode(CURRENT_PIN, INPUT);
     analogReadResolution(12);
     analogSetPinAttenuation(CURRENT_PIN, ADC_11db);
+
+    // Measure sensor offset with no load connected
+    const int offsetSamples = 10;
+    long offsetTotal = 0;
+    for (int i = 0; i < offsetSamples; ++i) {
+        offsetTotal += analogRead(CURRENT_PIN);
+        delay(2);
+    }
+    float offsetAvg = offsetTotal / (float)offsetSamples;
+    float offsetVoltage = (offsetAvg * 3.3f) / 4095.0f;
+    currentSensorOffset = offsetVoltage;
 
     iotWebConf.skipApStartup();
     iotWebConf.setConfigPin(23);
