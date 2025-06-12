@@ -17,7 +17,7 @@ const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
 // Analog pin for ACS712 current sensor
-const uint8_t CURRENT_PIN = 16;
+const uint8_t CURRENT_PIN = 35;
 
 // ACS712 characteristics (adjusted for 2k/3.3k level shifter)
 // The resistor divider scales the sensor output by R2/(R1+R2) which is
