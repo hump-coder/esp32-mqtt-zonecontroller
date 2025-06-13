@@ -84,6 +84,8 @@ unsigned long pulseStartTime = 0;
 
 // Current sensing
 float currentAmps = 0.0;
+float filteredCurrentAmps = 0.0;
+const float CURRENT_FILTER_ALPHA = 0.2f;
 unsigned long lastCurrentRead = 0;
 const unsigned long CURRENT_READ_INTERVAL_MS = 1000;
 
@@ -228,15 +230,19 @@ void updatePulse() {
 
 float readCurrent() {
     const int samples = 250;
-    long total = 0;
+    float sumSq = 0.0f;
     for (int i = 0; i < samples; ++i) {
-        total += analogRead(CURRENT_PIN);
+        int raw = analogRead(CURRENT_PIN);
+        float voltage = (raw * 3.3f) / 4095.0f;
+        float amps = (voltage - currentSensorOffset) / CURRENT_SENSOR_SENSITIVITY;
+        sumSq += amps * amps;
         delay(2);
     }
-    float average = total / (float)samples;
-    float voltage = (average * 3.3f) / 4095.0f;
-    float amps = (voltage - currentSensorOffset) / CURRENT_SENSOR_SENSITIVITY;
-    return amps;
+    float rms = sqrt(sumSq / samples);
+    // Simple exponential moving average to smooth noise
+    filteredCurrentAmps = CURRENT_FILTER_ALPHA * rms +
+                         (1.0f - CURRENT_FILTER_ALPHA) * filteredCurrentAmps;
+    return filteredCurrentAmps;
 }
 
 void publishCurrent() {
