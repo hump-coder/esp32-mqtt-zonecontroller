@@ -227,7 +227,7 @@ void updatePulse() {
 }
 
 float readCurrent() {
-    const int samples = 10;
+    const int samples = 250;
     long total = 0;
     for (int i = 0; i < samples; ++i) {
         total += analogRead(CURRENT_PIN);
@@ -376,16 +376,28 @@ void setup() {
     analogReadResolution(12);
     analogSetPinAttenuation(CURRENT_PIN, ADC_11db);
 
+    DEBUG_PRINTLN("Calibrating current sensor.");
+    for (int i = 0; i < 20; ++i) {
+        delay(100);
+        DEBUG_PRINT(".");
+    }
     // Measure sensor offset with no load connected
-    const int offsetSamples = 10;
+    const int offsetSamples = 1000;
     long offsetTotal = 0;
     for (int i = 0; i < offsetSamples; ++i) {
         offsetTotal += analogRead(CURRENT_PIN);
-        delay(2);
+        delay(5);
+        if(i % 100 == 0) {
+            DEBUG_PRINT(".");
+        }
     }
+    DEBUG_PRINTLN("");
     float offsetAvg = offsetTotal / (float)offsetSamples;
     float offsetVoltage = (offsetAvg * 3.3f) / 4095.0f;
     currentSensorOffset = offsetVoltage;
+    DEBUG_PRINT("Calibrated to offsetTotal: ");
+    DEBUG_PRINTLN(String(offsetTotal));
+
 
     iotWebConf.skipApStartup();
     iotWebConf.setConfigPin(23);
