@@ -12,6 +12,7 @@ This project controls multiple zone relays using an ESP32 and MQTT. It is design
 - State stored in NVS so zones resume their last state after power loss.
 - Dry‑run mode by setting `ACTUATE_RELAYS` to `0` in `include/config.h`.
 - Self‑calibrates its current sensor at boot, so start the controller with no load connected.
+- Zone display names defined in `include/config.h` and published over MQTT.
 
 ## Hardware
 
@@ -38,6 +39,12 @@ Current state is published to:
 
 ```
 <baseTopic>/zone<n>/state  (payload `ON` or `OFF`)
+```
+
+Each zone's configured name is also published when MQTT connects:
+
+```
+<baseTopic>/zone<n>/name   (payload is the display name)
 ```
 
 Home Assistant discovery is sent under `homeassistant/switch/<device>/zone<n>/config` when MQTT connects.
