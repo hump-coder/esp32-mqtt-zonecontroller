@@ -175,9 +175,21 @@ void publishZoneState(uint8_t zone) {
 
 }
 
+void publishZoneName(uint8_t zone) {
+    char topic[64];
+    snprintf(topic, sizeof(topic), "%s/zone%u/name", baseTopic, zone + 1);
+    mqttClient.publish(topic, ZONE_NAMES[zone], true);
+}
+
 void publishAllStates() {
     for (uint8_t i = 0; i < numZones; ++i) {
         publishZoneState(i);
+    }
+}
+
+void publishAllZoneNames() {
+    for (uint8_t i = 0; i < numZones; ++i) {
+        publishZoneName(i);
     }
 }
 
@@ -262,8 +274,8 @@ void sendDiscovery() {
 
         char payload[256];
         snprintf(payload, sizeof(payload),
-                "{\"name\":\"Zone %u\",\"command_topic\":\"%s/zone%u/set\",\"state_topic\":\"%s/zone%u/state\",\"uniq_id\":\"%s_zone%u\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\"}",
-                i + 1, baseTopic, i + 1, baseTopic, i + 1,
+                "{\"name\":\"%s\",\"command_topic\":\"%s/zone%u/set\",\"state_topic\":\"%s/zone%u/state\",\"uniq_id\":\"%s_zone%u\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\"}",
+                ZONE_NAMES[i], baseTopic, i + 1, baseTopic, i + 1,
                 iotWebConf.getThingName(), i + 1);
         DEBUG_PRINT("sending payload: ");
         DEBUG_PRINTLN(payload);
@@ -327,6 +339,7 @@ bool connectMqtt() {
         mqttClient.subscribe(sub.c_str());
         sendDiscovery();
         publishAllStates();
+        publishAllZoneNames();
         publishCurrent();
         return true;
     } else {
