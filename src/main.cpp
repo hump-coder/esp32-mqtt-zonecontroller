@@ -38,7 +38,7 @@ static bool zoneState[MAX_ZONES] = {false};
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define DEVICE_NAME "test-zone-controller"
+#define DEVICE_NAME "zone-controller"
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
@@ -142,6 +142,7 @@ void printZoneState() {
 
 void updateConfigVariables() {
     numZones = atoi(numZonesStr);
+    numZones = 6; // hard coded for test
     if (numZones > MAX_ZONES) numZones = MAX_ZONES;
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
@@ -178,7 +179,9 @@ void publishZoneState(uint8_t zone) {
 void publishZoneName(uint8_t zone) {
     char topic[64];
     snprintf(topic, sizeof(topic), "%s/zone%u/name", baseTopic, zone + 1);
+    String n("ffffuuuu");
     mqttClient.publish(topic, ZONE_NAMES[zone], true);
+    //mqttClient.publish(topic, n.c_str(), true);
 }
 
 void publishAllStates() {
