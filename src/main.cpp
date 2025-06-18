@@ -35,6 +35,10 @@ static uint16_t shiftState = 0x0000; // all off (LOW)
 // desired zone states (true=open, false=closed)
 static bool zoneState[MAX_ZONES] = {false};
 
+// indexes of zones that should remain open by default
+static uint8_t defaultZones[MAX_ZONES] = {0};
+static uint8_t defaultZoneCount = 0;
+
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
@@ -55,7 +59,7 @@ char mqttPass[32] = "rinnai";
 char baseTopic[IOTWEBCONF_WORD_LEN] = DEVICE_NAME;
 char numZonesStr[4] = "0";
 char pulseSecondsStr[6] = "30";
-char defaultZoneStr[4] = "0";
+char defaultZoneStr[32] = "";
 char invertRelaysValue[IOTWEBCONF_WORD_LEN] = "selected";
 
 IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer), mqttServer, mqttServer);
@@ -65,7 +69,7 @@ IotWebConfPasswordParameter mqttPassParam("MQTT Password", "mqttPassword", mqttP
 IotWebConfTextParameter baseTopicParam("Base Topic", "baseTopic", baseTopic, sizeof(baseTopic), baseTopic, baseTopic);
 IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr, sizeof(numZonesStr), "0", "0..15", "min='0' max='15'");
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
-IotWebConfNumberParameter defaultZoneParam("Default Zone", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "0", "0..15", "min='0' max='15'");
+IotWebConfTextParameter defaultZoneParam("Default Zone(s)", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "", "Comma separated zone numbers e.g. 1,3,5");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
 
 uint8_t numZones = 0;
@@ -95,6 +99,9 @@ void wifiConnected();
 void configSaved();
 float readCurrent();
 void publishCurrent();
+void parseDefaultZones();
+
+void ensureDefaultZonesOpen();
 
 void writeShiftRegister() {
     digitalWrite(LATCH_PIN, LOW);
@@ -131,6 +138,37 @@ void bitsToZoneState(uint16_t bits) {
     }
 }
 
+void parseDefaultZones() {
+    defaultZoneCount = 0;
+    const char *p = defaultZoneStr;
+    while (*p && defaultZoneCount < MAX_ZONES) {
+        while (*p == ' ' || *p == ',') p++;
+        if (!*p) break;
+        int zone = strtol(p, (char**)&p, 10);
+        if (zone >= 1 && zone <= MAX_ZONES) {
+            defaultZones[defaultZoneCount++] = zone - 1;
+        }
+        while (*p == ' ' || *p == ',') p++;
+    }
+    DEBUG_PRINT("Default zones parsed count: ");
+    DEBUG_PRINTLN(defaultZoneCount);
+}
+
+void ensureDefaultZonesOpen() {
+    uint8_t openCount = 0;
+    for (uint8_t i = 0; i < numZones; ++i) {
+        if (zoneState[i]) openCount++;
+    }
+    if (openCount >= defaultZoneCount) return;
+    for (uint8_t i = 0; i < defaultZoneCount && openCount < defaultZoneCount; ++i) {
+        uint8_t idx = defaultZones[i];
+        if (idx < numZones && !zoneState[idx]) {
+            zoneState[idx] = true;
+            openCount++;
+        }
+    }
+}
+
 
 void printZoneState() {
     DEBUG_PRINT("Zones state: ");
@@ -146,6 +184,7 @@ void updateConfigVariables() {
     if (numZones > MAX_ZONES) numZones = MAX_ZONES;
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
+    parseDefaultZones();
     DEBUG_PRINTLN(String("CONFIG INVERTED: ") + (coilOnForOpenFlag ? "true" : "false"));
 }
 
@@ -198,6 +237,7 @@ void publishAllZoneNames() {
 
 
 void applyZones() {
+    ensureDefaultZonesOpen();
     DEBUG_PRINT("Applying zones: ");
     for (uint8_t i = 0; i < numZones; ++i) {
         DEBUG_PRINT(zoneState[i] ? "1" : "0");
