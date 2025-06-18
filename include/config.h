@@ -4,7 +4,7 @@
 #define MASTER_RELAY_INDEX 15
 #define MAX_ZONES 15
 
-#define ZONE_COUNT 6
+//#define ZONE_COUNT 6
 
 // Set to 0 to disable physical relay activation for testing
 #define ACTUATE_RELAYS 1

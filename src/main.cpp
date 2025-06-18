@@ -16,18 +16,6 @@ const uint8_t DATA_PIN = 14;
 const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
-// Analog pin for ACS712 current sensor
-const uint8_t CURRENT_PIN = 35;
-
-// ACS712 characteristics (adjusted for 2k/3.3k level shifter)
-// The resistor divider scales the sensor output by R2/(R1+R2) which is
-// 3.3k / (2k + 3.3k) ≈ 0.62.  With the sensor centered at 2.5V and
-// 100mV/A sensitivity, the ESP32 sees roughly 1.56V offset and 62mV/A.
-const float CURRENT_SENSOR_OFFSET = 1.56; // Volts when no current flows
-const float CURRENT_SENSOR_SENSITIVITY = 0.062; // Volts per Ampere
-
-// Measured offset in volts after calibration
-float currentSensorOffset = CURRENT_SENSOR_OFFSET;
 
 // internal state of shift register (active high relays)
 static uint16_t shiftState = 0x0000; // all off (LOW)
@@ -42,7 +30,7 @@ static uint8_t defaultZoneCount = 0;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define DEVICE_NAME "zone-controller"
+#define DEVICE_NAME "test-zone-controller"
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
@@ -86,19 +74,13 @@ bool stateChanged = false;
 bool pulseActive = false;
 unsigned long pulseStartTime = 0;
 
-// Current sensing
-float currentAmps = 0.0;
-float filteredCurrentAmps = 0.0;
-const float CURRENT_FILTER_ALPHA = 0.2f;
-unsigned long lastCurrentRead = 0;
-const unsigned long CURRENT_READ_INTERVAL_MS = 1000;
 
 void updateConfigVariables();
 void handleRoot();
 void wifiConnected();
 void configSaved();
 float readCurrent();
-void publishCurrent();
+
 void parseDefaultZones();
 
 void ensureDefaultZonesOpen();
@@ -283,31 +265,6 @@ void updatePulse() {
 #endif
 }
 
-float readCurrent() {
-    const int samples = 250;
-    float sumSq = 0.0f;
-    for (int i = 0; i < samples; ++i) {
-        int raw = analogRead(CURRENT_PIN);
-        float voltage = (raw * 3.3f) / 4095.0f;
-        float amps = (voltage - currentSensorOffset) / CURRENT_SENSOR_SENSITIVITY;
-        sumSq += amps * amps;
-        delay(2);
-    }
-    float rms = sqrt(sumSq / samples);
-    // Simple exponential moving average to smooth noise
-    filteredCurrentAmps = CURRENT_FILTER_ALPHA * rms +
-                         (1.0f - CURRENT_FILTER_ALPHA) * filteredCurrentAmps;
-    return filteredCurrentAmps;
-}
-
-void publishCurrent() {
-    char topic[64];
-    snprintf(topic, sizeof(topic), "%s/current", baseTopic);
-    char payload[16];
-    dtostrf(currentAmps, 0, 2, payload);
-    mqttClient.publish(topic, payload, true);
-}
-
 void sendDiscovery() {
     DEBUG_PRINT("Sending discovery messages...");
     for (uint8_t i = 0; i < numZones; ++i) {
@@ -324,18 +281,6 @@ void sendDiscovery() {
         DEBUG_PRINTLN(payload);
         mqttClient.publish(topic, payload, true);
     }
-
-    // Discovery for current sensor
-    char curTopic[128];
-    snprintf(curTopic, sizeof(curTopic),
-             "homeassistant/sensor/%s/current/config", iotWebConf.getThingName());
-    char curPayload[256];
-    snprintf(curPayload, sizeof(curPayload),
-             "{\"name\":\"Current\",\"state_topic\":\"%s/current\",\"unit_of_measurement\":\"A\",\"uniq_id\":\"%s_current\"}",
-             baseTopic, iotWebConf.getThingName());
-    DEBUG_PRINT("sending payload: ");
-    DEBUG_PRINTLN(curPayload);             
-    mqttClient.publish(curTopic, curPayload, true);
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int length) {
@@ -383,7 +328,6 @@ bool connectMqtt() {
         sendDiscovery();
         publishAllStates();
         publishAllZoneNames();
-        publishCurrent();
         return true;
     } else {
         DEBUG_PRINT("failed, rc=");
@@ -433,33 +377,6 @@ void setup() {
 
     shiftState = 0x0000;
     writeShiftRegister();
-
-    pinMode(CURRENT_PIN, INPUT);
-    analogReadResolution(12);
-    analogSetPinAttenuation(CURRENT_PIN, ADC_11db);
-
-    DEBUG_PRINTLN("Calibrating current sensor.");
-    for (int i = 0; i < 20; ++i) {
-        delay(100);
-        DEBUG_PRINT(".");
-    }
-    // Measure sensor offset with no load connected
-    const int offsetSamples = 1000;
-    long offsetTotal = 0;
-    for (int i = 0; i < offsetSamples; ++i) {
-        offsetTotal += analogRead(CURRENT_PIN);
-        delay(5);
-        if(i % 100 == 0) {
-            DEBUG_PRINT(".");
-        }
-    }
-    DEBUG_PRINTLN("");
-    float offsetAvg = offsetTotal / (float)offsetSamples;
-    float offsetVoltage = (offsetAvg * 3.3f) / 4095.0f;
-    currentSensorOffset = offsetVoltage;
-    DEBUG_PRINT("Calibrated to offsetTotal: ");
-    DEBUG_PRINTLN(String(offsetTotal));
-
 
     iotWebConf.skipApStartup();
     iotWebConf.setConfigPin(23);
@@ -515,17 +432,6 @@ void loop() {
             mqttClient.loop();
         }
     }
-
-    // Read and publish current periodically
-    if (millis() - lastCurrentRead >= CURRENT_READ_INTERVAL_MS) {
-        currentAmps = readCurrent();
-        if (mqttClient.connected()) {
-            publishCurrent();
-        }
-        lastCurrentRead = millis();
-    }
-
-
 
     if (stateChanged && millis() - lastChangeTime >= SAVE_INTERVAL_MS) {
         saveState();
