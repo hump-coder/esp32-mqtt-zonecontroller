@@ -79,7 +79,6 @@ void updateConfigVariables();
 void handleRoot();
 void wifiConnected();
 void configSaved();
-float readCurrent();
 
 void parseDefaultZones();
 
