@@ -16,6 +16,9 @@ const uint8_t DATA_PIN = 14;
 const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
+const uint8_t GPIO_ZONE_PINS[8] = {32,33,25,26,27,14,12,13};
+
+bool useShiftRegisters = true;
 
 // internal state of shift register (active high relays)
 static uint16_t shiftState = 0x0000; // all off (LOW)
@@ -45,10 +48,14 @@ char mqttPort[6] = "1883";
 char mqttUser[32] = "rinnai";
 char mqttPass[32] = "rinnai";
 char baseTopic[IOTWEBCONF_WORD_LEN] = DEVICE_NAME;
-char numZonesStr[4] = "0";
+char numZonesStr[4] = "8";
 char pulseSecondsStr[6] = "30";
 char defaultZoneStr[32] = "";
 char invertRelaysValue[IOTWEBCONF_WORD_LEN] = "selected";
+char relayModeValue[IOTWEBCONF_WORD_LEN] = "shift";
+
+const char RELAY_MODE_VALUES[] = "shift\0gpio\0";
+const char RELAY_MODE_NAMES[]  = "Shift Register\0GPIO\0";
 
 IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer), mqttServer, mqttServer);
 IotWebConfNumberParameter mqttPortParam("MQTT Port", "mqttPort", mqttPort, sizeof(mqttPort), "1883", "1..65535", "min='1' max='65535' step='1'");
@@ -59,6 +66,9 @@ IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfTextParameter defaultZoneParam("Default Zone(s)", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "", "Comma separated zone numbers e.g. 1,3,5");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
+IotWebConfSelectParameter relayModeParam("Relay Mode", "relayMode",
+    relayModeValue, sizeof(relayModeValue),
+    RELAY_MODE_VALUES, RELAY_MODE_NAMES, 2, 15, "shift");
 
 uint8_t numZones = 0;
 unsigned long zonePulseMs = 30000;
@@ -85,10 +95,17 @@ void parseDefaultZones();
 void ensureDefaultZonesOpen();
 
 void writeShiftRegister() {
-    digitalWrite(LATCH_PIN, LOW);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (shiftState >> 8) & 0xFF);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, shiftState & 0xFF);
-    digitalWrite(LATCH_PIN, HIGH);
+    if (useShiftRegisters) {
+        digitalWrite(LATCH_PIN, LOW);
+        shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (shiftState >> 8) & 0xFF);
+        shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, shiftState & 0xFF);
+        digitalWrite(LATCH_PIN, HIGH);
+    } else {
+        for (uint8_t i = 0; i < numZones && i < 8; ++i) {
+            bool active = shiftState & (1 << i);
+            digitalWrite(GPIO_ZONE_PINS[i], active ? HIGH : LOW);
+        }
+    }
 }
 
 void setRelay(uint8_t index, bool active) {
@@ -161,12 +178,13 @@ void printZoneState() {
 
 void updateConfigVariables() {
     numZones = atoi(numZonesStr);
-    numZones = 6; // hard coded for test
     if (numZones > MAX_ZONES) numZones = MAX_ZONES;
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
+    useShiftRegisters = strncmp(relayModeValue, "gpio", 4) != 0;
     parseDefaultZones();
     DEBUG_PRINTLN(String("CONFIG INVERTED: ") + (coilOnForOpenFlag ? "true" : "false"));
+    DEBUG_PRINTLN(String("CONFIG RELAY MODE: ") + (useShiftRegisters ? "shift" : "gpio"));
 }
 
 
@@ -364,19 +382,6 @@ void setup() {
     Serial.begin(115200);
     DEBUG_PRINTLN("Setup starting...");
 
-    pinMode(DATA_PIN, OUTPUT);
-    pinMode(CLOCK_PIN, OUTPUT);
-    pinMode(LATCH_PIN, OUTPUT);
-    
-    shiftState = 0x0000;
-    writeShiftRegister();
-
-    pinMode(OE_PIN, OUTPUT);
-    digitalWrite(OE_PIN, LOW); // enable outputs
-
-    shiftState = 0x0000;
-    writeShiftRegister();
-
     iotWebConf.skipApStartup();
     iotWebConf.setConfigPin(23);
     iotWebConf.setWifiConnectionCallback(&wifiConnected);
@@ -392,8 +397,25 @@ void setup() {
     iotWebConf.addSystemParameter(&pulseSecondsParam);
     iotWebConf.addSystemParameter(&defaultZoneParam);
     iotWebConf.addSystemParameter(&invertRelaysParam);
+    iotWebConf.addSystemParameter(&relayModeParam);
     iotWebConf.init();
     updateConfigVariables();
+
+    if (useShiftRegisters) {
+        pinMode(DATA_PIN, OUTPUT);
+        pinMode(CLOCK_PIN, OUTPUT);
+        pinMode(LATCH_PIN, OUTPUT);
+        pinMode(OE_PIN, OUTPUT);
+        digitalWrite(OE_PIN, LOW); // enable outputs
+    } else {
+        for (uint8_t i = 0; i < numZones && i < 8; ++i) {
+            pinMode(GPIO_ZONE_PINS[i], OUTPUT);
+            digitalWrite(GPIO_ZONE_PINS[i], LOW);
+        }
+    }
+
+    shiftState = 0x0000;
+    writeShiftRegister();
     
 
     prefs.begin("zones", false);
