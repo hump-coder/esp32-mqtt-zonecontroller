@@ -43,7 +43,7 @@ following pins by default:
 
 ## MQTT Topics
 
-The default base topic is `8zone-controller`. Topics are automatically published under the `homeassistant/` prefix. Each zone `n` (1‑15) listens for commands on:
+The default base topic is `8zone-controller`. Topics are automatically published under the `homeassistant/` prefix. This prefix can be removed by setting `HA_PREFIX` to an empty string in `src/main.cpp`. Each zone `n` (1‑15) listens for commands on:
 
 ```
 homeassistant/<baseTopic>/zone<n>/set    (payload `ON` or `OFF`)

@@ -7,6 +7,7 @@
 #include <WebServer.h>
 #include <IotWebConf.h>
 #include <IotWebConfUsing.h>
+#include <string.h>
 
 #include "config.h"
 #include "debug.h"
@@ -35,6 +36,7 @@ PubSubClient mqttClient(wifiClient);
 
 #define DEVICE_NAME "8zone-controller"
 #define HA_PREFIX "homeassistant"
+//#define HA_PREFIX ""  // Uncomment to disable the prefix
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
@@ -182,7 +184,12 @@ void updateConfigVariables() {
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
     useShiftRegisters = strncmp(relayModeValue, "gpio", 4) != 0;
-    snprintf(haBaseTopic, sizeof(haBaseTopic), "%s/%s", HA_PREFIX, baseTopic);
+    if (strlen(HA_PREFIX) == 0) {
+        strncpy(haBaseTopic, baseTopic, sizeof(haBaseTopic));
+        haBaseTopic[sizeof(haBaseTopic) - 1] = '\0';
+    } else {
+        snprintf(haBaseTopic, sizeof(haBaseTopic), "%s/%s", HA_PREFIX, baseTopic);
+    }
     parseDefaultZones();
     DEBUG_PRINTLN(String("CONFIG INVERTED: ") + (coilOnForOpenFlag ? "true" : "false"));
     DEBUG_PRINTLN(String("CONFIG RELAY MODE: ") + (useShiftRegisters ? "shift" : "gpio"));
