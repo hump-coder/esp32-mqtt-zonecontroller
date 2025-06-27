@@ -4,7 +4,7 @@ This project controls multiple zone relays using an ESP32 and MQTT. It is design
 
 ## Features
 
-- Supports up to **15** zones plus a master relay driven through SN74HC595 shift registers.
+- Supports up to **15** zones plus a master relay driven through SN74HC595 shift registers. A GPIO mode is also available for simpler 8 channel boards.
 - MQTT control topics for each zone with retained state publication.
 - Automatic Home Assistant discovery messages.
 - Web based configuration of Wi‑Fi and MQTT settings via IotWebConf.
@@ -26,6 +26,20 @@ Shift register wiring uses the following pins:
 | OE (active low) | 5 |
 
 The configuration button is on GPIO23. `MASTER_RELAY_INDEX` is `15`.
+
+When `Relay Mode` is set to **GPIO** the first 8 zones are mapped to the
+following pins by default:
+
+| Zone | GPIO |
+|-----|-----|
+| 1 | 32 |
+| 2 | 33 |
+| 3 | 25 |
+| 4 | 26 |
+| 5 | 27 |
+| 6 | 14 |
+| 7 | 12 |
+| 8 | 13 |
 
 ## MQTT Topics
 
