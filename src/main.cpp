@@ -33,11 +33,11 @@ static uint8_t defaultZoneCount = 0;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define DEVICE_NAME "test-zone-controller"
+#define DEVICE_NAME "8zone-controller"
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
-const char CONFIG_VERSION[] = "e1";
+const char CONFIG_VERSION[] = "e2";
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -66,9 +66,7 @@ IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfTextParameter defaultZoneParam("Default Zone(s)", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "", "Comma separated zone numbers e.g. 1,3,5");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
-IotWebConfSelectParameter relayModeParam("Relay Mode", "relayMode",
-    relayModeValue, sizeof(relayModeValue),
-    RELAY_MODE_VALUES, RELAY_MODE_NAMES, 2, 15, "shift");
+IotWebConfSelectParameter relayModeParam("Relay Mode", "relayMode", relayModeValue, sizeof(relayModeValue), RELAY_MODE_VALUES, RELAY_MODE_NAMES, 2, 15, "shift");
 
 uint8_t numZones = 0;
 unsigned long zonePulseMs = 30000;

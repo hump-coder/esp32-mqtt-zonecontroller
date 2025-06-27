@@ -12,12 +12,12 @@
 #define MASTER_DELAY 100
 
 static const char* const ZONE_NAMES[MAX_ZONES] = {
-    "Kids", // 1
-    "Master", // 2
-    "Karl's Office", //3
-    "Office", // 4
-    "Kitchen", // 5
-    "Bedroom", // 6
+    "xKids", // 1
+    "xMaster", // 2
+    "xKarl's Office", //3
+    "xOffice", // 4
+    "xKitchen", // 5
+    "xBedroom", // 6
     "Zone 7", // 7
     "Zone 8", // 8
     "Zone 9", // 9
