@@ -34,6 +34,7 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 #define DEVICE_NAME "8zone-controller"
+#define HA_PREFIX "homeassistant"
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
@@ -48,6 +49,7 @@ char mqttPort[6] = "1883";
 char mqttUser[32] = "rinnai";
 char mqttPass[32] = "rinnai";
 char baseTopic[IOTWEBCONF_WORD_LEN] = DEVICE_NAME;
+char haBaseTopic[64];
 char numZonesStr[4] = "8";
 char pulseSecondsStr[6] = "30";
 char defaultZoneStr[32] = "";
@@ -180,6 +182,7 @@ void updateConfigVariables() {
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
     useShiftRegisters = strncmp(relayModeValue, "gpio", 4) != 0;
+    snprintf(haBaseTopic, sizeof(haBaseTopic), "%s/%s", HA_PREFIX, baseTopic);
     parseDefaultZones();
     DEBUG_PRINTLN(String("CONFIG INVERTED: ") + (coilOnForOpenFlag ? "true" : "false"));
     DEBUG_PRINTLN(String("CONFIG RELAY MODE: ") + (useShiftRegisters ? "shift" : "gpio"));
@@ -202,7 +205,7 @@ void saveState() {
 
 void publishZoneState(uint8_t zone) {
     char topic[64];
-    snprintf(topic, sizeof(topic), "%s/zone%u/state", baseTopic, zone + 1);
+    snprintf(topic, sizeof(topic), "%s/zone%u/state", haBaseTopic, zone + 1);
     mqttClient.publish(topic, zoneState[zone] ? "ON" : "OFF", true);
 
 //    DEBUG_PRINT("sending zoneState:");
@@ -214,7 +217,7 @@ void publishZoneState(uint8_t zone) {
 
 void publishZoneName(uint8_t zone) {
     char topic[64];
-    snprintf(topic, sizeof(topic), "%s/zone%u/name", baseTopic, zone + 1);
+    snprintf(topic, sizeof(topic), "%s/zone%u/name", haBaseTopic, zone + 1);
     String n("ffffuuuu");
     mqttClient.publish(topic, ZONE_NAMES[zone], true);
     //mqttClient.publish(topic, n.c_str(), true);
@@ -290,7 +293,7 @@ void sendDiscovery() {
         char payload[256];
         snprintf(payload, sizeof(payload),
                 "{\"name\":\"%s\",\"command_topic\":\"%s/zone%u/set\",\"state_topic\":\"%s/zone%u/state\",\"uniq_id\":\"%s_zone%u\",\"payload_on\":\"ON\",\"payload_off\":\"OFF\"}",
-                ZONE_NAMES[i], baseTopic, i + 1, baseTopic, i + 1,
+                ZONE_NAMES[i], haBaseTopic, i + 1, haBaseTopic, i + 1,
                 iotWebConf.getThingName(), i + 1);
         DEBUG_PRINT("sending payload: ");
         DEBUG_PRINTLN(payload);
@@ -308,7 +311,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
     DEBUG_PRINT("] ");
     DEBUG_PRINTLN(msg);
     String t(topic);
-    String prefix = String(baseTopic) + "/zone";
+    String prefix = String(haBaseTopic) + "/zone";
     if (t.startsWith(prefix) && t.endsWith("/set")) {
         int zone = t.substring(prefix.length(), t.length() - 4).toInt();
         if (zone >= 1 && zone <= numZones) {
@@ -338,7 +341,7 @@ bool connectMqtt() {
     DEBUG_PRINT("Attempting MQTT connection...");
     if (mqttClient.connect(iotWebConf.getThingName(), mqttUser, mqttPass)) {
         DEBUG_PRINTLN("connected");
-        String sub = String(baseTopic) + "/+/set";
+        String sub = String(haBaseTopic) + "/+/set";
         mqttClient.subscribe(sub.c_str());
         sendDiscovery();
         publishAllStates();

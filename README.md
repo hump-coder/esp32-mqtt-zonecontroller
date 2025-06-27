@@ -43,22 +43,22 @@ following pins by default:
 
 ## MQTT Topics
 
-The default base topic is `zone-controller`. Each zone `n` (1‑15) listens for commands on:
+The default base topic is `8zone-controller`. Topics are automatically published under the `homeassistant/` prefix. Each zone `n` (1‑15) listens for commands on:
 
 ```
-<baseTopic>/zone<n>/set    (payload `ON` or `OFF`)
+homeassistant/<baseTopic>/zone<n>/set    (payload `ON` or `OFF`)
 ```
 
 Current state is published to:
 
 ```
-<baseTopic>/zone<n>/state  (payload `ON` or `OFF`)
+homeassistant/<baseTopic>/zone<n>/state  (payload `ON` or `OFF`)
 ```
 
 Each zone's configured name is also published when MQTT connects:
 
 ```
-<baseTopic>/zone<n>/name   (payload is the display name)
+homeassistant/<baseTopic>/zone<n>/name   (payload is the display name)
 ```
 
 Home Assistant discovery is sent under `homeassistant/switch/<device>/zone<n>/config` when MQTT connects.
@@ -89,7 +89,7 @@ Replace `<device-hostname>` with the value shown in the configuration interface.
 
 ## Configuration
 
-On first boot (or when the config button is held) the controller starts an access point named `zone-controller` with password `zonezone`. Browse to `/config` to enter Wi‑Fi credentials, MQTT broker information, number of zones, master pulse length and other options. Settings are saved in flash and restored on reboot.
+On first boot (or when the config button is held) the controller starts an access point named `8zone-controller` with password `zonezone`. Browse to `/config` to enter Wi‑Fi credentials, MQTT broker information, number of zones, master pulse length and other options. Settings are saved in flash and restored on reboot.
 
 ## License
 
