@@ -3,7 +3,7 @@
 
 #include "config-private.h"
 
-#define MASTER_RELAY_INDEX 7
+#define MASTER_RELAY_INDEX 15
 #define MAX_ZONES 15
 
 //
