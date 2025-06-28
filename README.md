@@ -65,6 +65,8 @@ Home Assistant discovery is sent under `homeassistant/switch/<device>/zone<n>/co
 
 ## Building
 
+Copy the `include/config-private-example.h` to `include/config-private.h` and populate with your private configuration data.
+
 Install [PlatformIO](https://platformio.org) and run:
 
 ```

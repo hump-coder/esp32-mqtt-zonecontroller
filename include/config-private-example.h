@@ -1,6 +1,11 @@
 #ifndef CONFIG_PRIVATE_H
 #define CONFIG_PRIVATE_H
 
+//
+// EXAMPLE config-private.h - PLEASE COPY OR RENAME THIS FILE TO config-private.h AND ADD YOUR OWN CONTENT.
+//
+
+
 #define WIFI_SSID "your wifi ssid"
 #define WIFI_PASSWORD "your wifi password"
 
