@@ -58,8 +58,8 @@ char defaultZoneStr[32] = "";
 char invertRelaysValue[IOTWEBCONF_WORD_LEN] = "selected";
 char relayModeValue[IOTWEBCONF_WORD_LEN] = "shift";
 
-const char RELAY_MODE_VALUES[] = "shift\0gpio\0";
-const char RELAY_MODE_NAMES[]  = "Shift Register\0GPIO\0";
+static char relayModeValues[][IOTWEBCONF_WORD_LEN] = { "shift", "gpio" };
+static char relayModeNames[][15] = { "Shift Register", "GPIO" };
 
 IotWebConfTextParameter mqttServerParam("MQTT Server", "mqttServer", mqttServer, sizeof(mqttServer), mqttServer, mqttServer);
 IotWebConfNumberParameter mqttPortParam("MQTT Port", "mqttPort", mqttPort, sizeof(mqttPort), "1883", "1..65535", "min='1' max='65535' step='1'");
@@ -70,7 +70,11 @@ IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfTextParameter defaultZoneParam("Default Zone(s)", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "", "Comma separated zone numbers e.g. 1,3,5");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
-IotWebConfSelectParameter relayModeParam("Relay Mode", "relayMode", relayModeValue, sizeof(relayModeValue), RELAY_MODE_VALUES, RELAY_MODE_NAMES, 2, 15, "shift");
+IotWebConfSelectParameter relayModeParam(
+    "Relay Mode", "relayMode", relayModeValue, sizeof(relayModeValue),
+    (char*)relayModeValues, (char*)relayModeNames,
+    sizeof(relayModeValues) / IOTWEBCONF_WORD_LEN,
+    sizeof(relayModeNames[0]), "shift");
 
 uint8_t numZones = 0;
 unsigned long zonePulseMs = 30000;
