@@ -12,22 +12,39 @@
 #include "config.h"
 #include "debug.h"
 
+//
+// This gets set from the IotWebConf
+//
+bool useShiftRegisters = true;
+
+//
 // Pins for SN74HC595 shift registers
+// These are only used if the board is configured to use shift registers
+//
 const uint8_t DATA_PIN = 14;
 const uint8_t CLOCK_PIN = 13;
 const uint8_t LATCH_PIN = 12;
 const uint8_t OE_PIN = 5; // active low
+
+//
+// If configured to use gpio's
+//
 const uint8_t GPIO_ZONE_PINS[8] = {32,33,25,26,27,14,12,13};
 
-bool useShiftRegisters = true;
 
+//
 // internal state of shift register (active high relays)
+//
 static uint16_t shiftState = 0x0000; // all off (LOW)
 
+//
 // desired zone states (true=open, false=closed)
+//
 static bool zoneState[MAX_ZONES] = {false};
 
+//
 // indexes of zones that should remain open by default
+//
 static uint8_t defaultZones[MAX_ZONES] = {0};
 static uint8_t defaultZoneCount = 0;
 
@@ -70,11 +87,7 @@ IotWebConfNumberParameter numZonesParam("Enabled Zones", "numZones", numZonesStr
 IotWebConfNumberParameter pulseSecondsParam("Master Pulse (s)", "pulseSecs", pulseSecondsStr, sizeof(pulseSecondsStr), "30", "1..3600", "min='1' max='3600'");
 IotWebConfTextParameter defaultZoneParam("Default Zone(s)", "defaultZone", defaultZoneStr, sizeof(defaultZoneStr), "", "Comma separated zone numbers e.g. 1,3,5");
 IotWebConfCheckboxParameter invertRelaysParam("Invert relay states", "invertRelays", invertRelaysValue, sizeof(invertRelaysValue), true);
-IotWebConfSelectParameter relayModeParam(
-    "Relay Mode", "relayMode", relayModeValue, sizeof(relayModeValue),
-    (char*)relayModeValues, (char*)relayModeNames,
-    sizeof(relayModeValues) / IOTWEBCONF_WORD_LEN,
-    sizeof(relayModeNames[0]), "shift");
+IotWebConfSelectParameter relayModeParam("Relay Mode", "relayMode", relayModeValue, sizeof(relayModeValue), (char*)relayModeValues, (char*)relayModeNames, sizeof(relayModeValues) / IOTWEBCONF_WORD_LEN, sizeof(relayModeNames[0]), "shift");
 
 uint8_t numZones = 0;
 unsigned long zonePulseMs = 30000;
@@ -86,7 +99,9 @@ const unsigned long SAVE_INTERVAL_MS = 30000;
 unsigned long lastChangeTime = 0;
 bool stateChanged = false;
 
+//
 // Track current pulse status for master and zone relays
+//
 bool pulseActive = false;
 unsigned long pulseStartTime = 0;
 
@@ -109,16 +124,16 @@ void writeShiftRegister() {
         digitalWrite(LATCH_PIN, HIGH);                
 
     } else {
-        DEBUG_PRINTLN("HAVING A SHOT AT SETTING GPIOS");
+        DEBUG_PRINTLN("SETTING DESIRED GPIO STATES");
         for (uint8_t i = 0; i < numZones && i < 8; ++i) {
             bool active = shiftState & (1 << i);
             digitalWrite(GPIO_ZONE_PINS[i], active ? HIGH : LOW);
-            DEBUG_PRINTLN(String("SET gpio:") + String(GPIO_ZONE_PINS[i]) + String(" ") + (active ? "1" : "0") );
+            DEBUG_PRINTLN(String("GPIO: ") + String(GPIO_ZONE_PINS[i]) + (active ? " ON" : " OFF") );
         }
         bool active = shiftState & (1 << MASTER_RELAY_INDEX);
         digitalWrite(GPIO_ZONE_PINS[MASTER_RELAY_INDEX], active ? HIGH : LOW);
-        DEBUG_PRINTLN(String("SET master gpio:") + String(GPIO_ZONE_PINS[MASTER_RELAY_INDEX]) + String(" ") + (active ? "1" : "0") );
-        DEBUG_PRINTLN("FINISHED - HOW'D i DO?");
+        DEBUG_PRINTLN(String("master GPIO: ") + String(GPIO_ZONE_PINS[MASTER_RELAY_INDEX]) + (active ? " ON" : " OFF") );
+        DEBUG_PRINTLN("COMPLETED SETTING GPIO STATES.");
     }
 }
 
@@ -224,7 +239,7 @@ void updateConfigVariables() {
 void loadState() {
     uint16_t bits = prefs.getUShort("state", 0);
     bitsToZoneState(bits);
-    DEBUG_PRINT("Loaded state: ");
+    DEBUG_PRINT("Loaded ");
     printZoneState();
 }
 
@@ -239,12 +254,6 @@ void publishZoneState(uint8_t zone) {
     char topic[64];
     snprintf(topic, sizeof(topic), "%s/zone%u/state", haBaseTopic, zone + 1);
     mqttClient.publish(topic, zoneState[zone] ? "ON" : "OFF", true);
-
-//    DEBUG_PRINT("sending zoneState:");
-//    DEBUG_PRINT(zone + 1);
-//    DEBUG_PRINT("=");
-//    DEBUG_PRINTLN(zoneState[zone] ? "ON" : "OFF");
-
 }
 
 void publishZoneName(uint8_t zone) {
@@ -252,7 +261,6 @@ void publishZoneName(uint8_t zone) {
     snprintf(topic, sizeof(topic), "%s/zone%u/name", haBaseTopic, zone + 1);
     String n("ffffuuuu");
     mqttClient.publish(topic, ZONE_NAMES[zone], true);
-    //mqttClient.publish(topic, n.c_str(), true);
 }
 
 void publishAllStates() {
@@ -283,28 +291,29 @@ void applyZones() {
 
 #if ACTUATE_RELAYS
     writeShiftRegister();
-    DEBUG_PRINTLN("ZONE RELAYS ENERGISED TO REQUIRED STATES");
+    DEBUG_PRINTLN("ZONE RELAYS ENERGISED TO REQUIRED STATES, NOW ENERGISING MASTER TO SUPPLY POWER");
     delay(MASTER_DELAY);
     // ensure master relay is on and start/extend pulse timer
     setRelay(MASTER_RELAY_INDEX, true);
     writeShiftRegister();
     pulseActive = true;
-    DEBUG_PRINTLN("MASTER RELAY ENERGISED: " + String(MASTER_RELAY_INDEX));
+    DEBUG_PRINTLN("MASTER RELAY ENERGISED - WILL HOLD FOR MASTER PULSE TIME.");    
     pulseStartTime = millis();
 #else
     DEBUG_PRINTLN(" (dry run - relays not actuated)");
 #endif
-
-   // publishAllStates();
+   
 }
 
 void updatePulse() {
 #if ACTUATE_RELAYS
     if (pulseActive && millis() - pulseStartTime >= zonePulseMs) {
         
+        DEBUG_PRINTLN("MASTER RELAY PULSE TIME EXPIRED, LET'S DE-ENERGISED.");
+
         setRelay(MASTER_RELAY_INDEX, false);
         writeShiftRegister();
-        DEBUG_PRINTLN("MASTER RELAY DE-ENERGISED: " + String(MASTER_RELAY_INDEX));
+        DEBUG_PRINTLN("MASTER RELAY DE-ENERGISED");
         delay(MASTER_DELAY);
 
         for (uint8_t i = 0; i < numZones; ++i) {
@@ -313,9 +322,7 @@ void updatePulse() {
 
         writeShiftRegister();
         pulseActive = false;
-        DEBUG_PRINTLN("ZONE RELAYS DE-ENERGISED");
-
-
+        DEBUG_PRINTLN("ZONE RELAY DE-ENERGISE COMPLETE");
     }
 #endif
 }
@@ -399,7 +406,6 @@ void wifiConnected() {
     mqttClient.setServer(mqttServer, atoi(mqttPort));
     mqttClient.setCallback(mqttCallback);
     connectMqtt();
-  //  applyZones();
 }
 
 void configSaved() {
@@ -450,17 +456,22 @@ void setup() {
     } else {
         DEBUG_PRINTLN("SETTING UP BOARD TO USE GPIO FOR RELAYS.");
 
-        for (uint8_t i = 0; i < numZones && i < 8; ++i) {
+        //
+        // Let's setup all 8 relays ready for use (even if they're not enabled)
+        //
+        for (uint8_t i = 0; i < 8; ++i) {
             pinMode(GPIO_ZONE_PINS[i], OUTPUT);
             digitalWrite(GPIO_ZONE_PINS[i], LOW);
         }
     }
 
+  //  DEBUG_PRINTLN("CLEARING ALL RELAYS (DEFAULT START STATE BEFORE STATE LOADED.");
     shiftState = 0x0000;
-    writeShiftRegister();
+    //writeShiftRegister();
     
     prefs.begin("zones", false);
     loadState();
+    DEBUG_PRINTLN("PERSISTED STATE LOADED.");
 
     //
     // Apply zones now don't wait for network or mqtt connections.
@@ -468,6 +479,7 @@ void setup() {
     //
     stateChanged = true;
     lastChangeTime = millis();
+    DEBUG_PRINTLN("APPLYING LOADED STATE.");
     applyZones();
 
     server.on("/", handleRoot);

@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define MASTER_RELAY_INDEX 15
+#define MASTER_RELAY_INDEX 7
 #define MAX_ZONES 15
 
 //#define ZONE_COUNT 6
