@@ -13,5 +13,7 @@
 
 #define MASTER_DELAY 100
 
+//#define HA_PREFIX "homeassistant"
+#define HA_PREFIX ""  // Uncomment to disable the prefix
 
 #endif // CONFIG_H

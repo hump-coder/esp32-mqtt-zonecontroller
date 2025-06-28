@@ -51,9 +51,7 @@ static uint8_t defaultZoneCount = 0;
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define DEVICE_NAME "8zone-controller"
-//#define HA_PREFIX "homeassistant"
-#define HA_PREFIX ""  // Uncomment to disable the prefix
+
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
