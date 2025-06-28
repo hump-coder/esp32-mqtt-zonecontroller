@@ -65,7 +65,7 @@ Home Assistant discovery is sent under `homeassistant/switch/<device>/zone<n>/co
 
 ## Building
 
-Copy the `include/config-private-example.h` to `include/config-private.h` and populate with your private configuration data.
+Copy `include/config-private-example.h` to `include/config-private.h` and populate it with your Wi-Fi, MQTT and zone configuration.
 
 Install [PlatformIO](https://platformio.org) and run:
 
@@ -75,7 +75,9 @@ pio run -t upload  # flash the ESP32
 pio device monitor # optional serial monitor
 ```
 
-The project targets the `esp32dev` board using the Arduino framework. See `platformio.ini` for details.
+You can also run `scripts/setup.sh` for a one-off build which copies the example configuration and uses the `PIO_BOARD` environment variable if set.
+
+The provided `platformio.ini` targets the `esp32dev` board using the Arduino framework. If you have a different ESP32 based board set the `board` option accordingly or export `PIO_BOARD=<your-board>` before running PlatformIO. See `platformio.ini` for valid board IDs.
 
 ### OTA Updates
 
