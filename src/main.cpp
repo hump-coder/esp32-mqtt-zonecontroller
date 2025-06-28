@@ -35,12 +35,12 @@ WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 #define DEVICE_NAME "8zone-controller"
-#define HA_PREFIX "homeassistant"
-//#define HA_PREFIX ""  // Uncomment to disable the prefix
+//#define HA_PREFIX "homeassistant"
+#define HA_PREFIX ""  // Uncomment to disable the prefix
 
 const char THING_NAME[] = DEVICE_NAME;
 const char INITIAL_AP_PASSWORD[] = "zonezone";
-const char CONFIG_VERSION[] = "e2";
+const char CONFIG_VERSION[] = "e3";
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -102,17 +102,35 @@ void ensureDefaultZonesOpen();
 
 void writeShiftRegister() {
     if (useShiftRegisters) {
+        DEBUG_PRINTLN("Were using SHIFT REGISTERS");
         digitalWrite(LATCH_PIN, LOW);
         shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, (shiftState >> 8) & 0xFF);
         shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, shiftState & 0xFF);
-        digitalWrite(LATCH_PIN, HIGH);
+        digitalWrite(LATCH_PIN, HIGH);                
+
     } else {
+        DEBUG_PRINTLN("HAVING A SHOT AT SETTING GPIOS");
         for (uint8_t i = 0; i < numZones && i < 8; ++i) {
             bool active = shiftState & (1 << i);
             digitalWrite(GPIO_ZONE_PINS[i], active ? HIGH : LOW);
+            DEBUG_PRINTLN(String("SET gpio:") + String(GPIO_ZONE_PINS[i]) + String(" ") + (active ? "1" : "0") );
         }
+        bool active = shiftState & (1 << MASTER_RELAY_INDEX);
+        digitalWrite(GPIO_ZONE_PINS[MASTER_RELAY_INDEX], active ? HIGH : LOW);
+        DEBUG_PRINTLN(String("SET master gpio:") + String(GPIO_ZONE_PINS[MASTER_RELAY_INDEX]) + String(" ") + (active ? "1" : "0") );
+        DEBUG_PRINTLN("FINISHED - HOW'D i DO?");
     }
 }
+
+void debugPrintZones()
+{
+    DEBUG_PRINT("Zones: ");
+    for (uint8_t i = 0; i < numZones; ++i) {
+        DEBUG_PRINT(zoneState[i] ? "1" : "0");
+    }
+    DEBUG_PRINTLN("");
+}
+
 
 void setRelay(uint8_t index, bool active) {
     if (active)
@@ -188,6 +206,9 @@ void updateConfigVariables() {
     zonePulseMs = (unsigned long)atoi(pulseSecondsStr) * 1000;
     coilOnForOpenFlag = !invertRelaysParam.isChecked();
     useShiftRegisters = strncmp(relayModeValue, "gpio", 4) != 0;
+
+    DEBUG_PRINTLN(String("USE SHIFT REGISTERS CONFIG: ") + String(relayModeValue));
+
     if (strlen(HA_PREFIX) == 0) {
         strncpy(haBaseTopic, baseTopic, sizeof(haBaseTopic));
         haBaseTopic[sizeof(haBaseTopic) - 1] = '\0';
@@ -262,12 +283,13 @@ void applyZones() {
 
 #if ACTUATE_RELAYS
     writeShiftRegister();
-
+    DEBUG_PRINTLN("ZONE RELAYS ENERGISED TO REQUIRED STATES");
     delay(MASTER_DELAY);
     // ensure master relay is on and start/extend pulse timer
     setRelay(MASTER_RELAY_INDEX, true);
     writeShiftRegister();
     pulseActive = true;
+    DEBUG_PRINTLN("MASTER RELAY ENERGISED: " + String(MASTER_RELAY_INDEX));
     pulseStartTime = millis();
 #else
     DEBUG_PRINTLN(" (dry run - relays not actuated)");
@@ -282,6 +304,7 @@ void updatePulse() {
         
         setRelay(MASTER_RELAY_INDEX, false);
         writeShiftRegister();
+        DEBUG_PRINTLN("MASTER RELAY DE-ENERGISED: " + String(MASTER_RELAY_INDEX));
         delay(MASTER_DELAY);
 
         for (uint8_t i = 0; i < numZones; ++i) {
@@ -290,6 +313,9 @@ void updatePulse() {
 
         writeShiftRegister();
         pulseActive = false;
+        DEBUG_PRINTLN("ZONE RELAYS DE-ENERGISED");
+
+
     }
 #endif
 }
@@ -414,12 +440,16 @@ void setup() {
     updateConfigVariables();
 
     if (useShiftRegisters) {
+        DEBUG_PRINTLN("SETTING UP BOARD TO USE SHIFT REGISTERS FOR RELAYS.");
+
         pinMode(DATA_PIN, OUTPUT);
         pinMode(CLOCK_PIN, OUTPUT);
         pinMode(LATCH_PIN, OUTPUT);
         pinMode(OE_PIN, OUTPUT);
         digitalWrite(OE_PIN, LOW); // enable outputs
     } else {
+        DEBUG_PRINTLN("SETTING UP BOARD TO USE GPIO FOR RELAYS.");
+
         for (uint8_t i = 0; i < numZones && i < 8; ++i) {
             pinMode(GPIO_ZONE_PINS[i], OUTPUT);
             digitalWrite(GPIO_ZONE_PINS[i], LOW);
@@ -429,7 +459,6 @@ void setup() {
     shiftState = 0x0000;
     writeShiftRegister();
     
-
     prefs.begin("zones", false);
     loadState();
 
@@ -447,7 +476,7 @@ void setup() {
 }
 
 void loop() {
-
+    
     updatePulse();
 
     ArduinoOTA.handle();
