@@ -22,6 +22,13 @@ The GPIO configuration is targeting this 8 relay ESP32 board (but any should wor
 The shift register configuration is targeting this 16 relay ESP32 board:
 ![image](https://github.com/user-attachments/assets/8cf27e2f-2b09-4340-9b8b-3ca27deb4131)
 
+Example Hacky Crude implementation (yes, this is one of mine!)
+
+![image](https://github.com/user-attachments/assets/2fcf734a-7838-4372-8aaa-86bb81c576b6)
+![image](https://github.com/user-attachments/assets/ba1d5e8e-7ea0-4f31-9fcd-a9db3452e254)
+![image](https://github.com/user-attachments/assets/c4e541f4-674f-409d-98e6-ddceb3e50d6d)
+![image](https://github.com/user-attachments/assets/58b11896-cf07-40e4-b8a4-cac35bb5c93a)
+
 Shift register wiring uses the following pins:
 
 | Function | GPIO |
