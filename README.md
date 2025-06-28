@@ -28,6 +28,7 @@ Example Hacky Crude implementation (yes, this is one of mine!)
 ![image](https://github.com/user-attachments/assets/58b11896-cf07-40e4-b8a4-cac35bb5c93a)
 ![image](https://github.com/user-attachments/assets/2fcf734a-7838-4372-8aaa-86bb81c576b6)
 ![image](https://github.com/user-attachments/assets/ba1d5e8e-7ea0-4f31-9fcd-a9db3452e254)
+![image](https://github.com/user-attachments/assets/73a0ada8-4132-4bd9-b6ea-69926773fad0)
 
 Shift register wiring uses the following pins:
 
