@@ -8,6 +8,7 @@ This project controls multiple zone relays using an ESP32 and MQTT. It is design
 - MQTT control topics for each zone with retained state publication.
 - Automatic Home Assistant discovery messages.
 - Web based configuration of Wi‑Fi and MQTT settings via IotWebConf.
+- Simple web interface to view and control zones.
 - Adjustable master relay pulse time and option to invert relay logic.
 - State stored in NVS so zones resume their last state after power loss.
 - Dry‑run mode by setting `ACTUATE_RELAYS` to `0` in `include/config.h`.
@@ -107,6 +108,10 @@ Replace `<device-hostname>` with the value shown in the configuration interface.
 ## Configuration
 
 On first boot (or when the config button is held) the controller starts an access point named `8zone-controller` with password `zonezone`. Browse to `/config` to enter Wi‑Fi credentials, MQTT broker information, number of zones, master pulse length and other options. Settings are saved in flash and restored on reboot.
+
+## Web Interface
+
+Once connected to Wi‑Fi, open the device's IP address (or `<device-hostname>.local`) in your browser. The main page displays the current state of all zones and provides **On** and **Off** buttons for each one. The page refreshes automatically every few seconds. Links are also provided to open the configuration page or reboot the controller.
 
 ## License
 

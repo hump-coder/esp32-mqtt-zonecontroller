@@ -415,8 +415,51 @@ void handleRoot() {
     if (iotWebConf.handleCaptivePortal()) {
         return;
     }
-    String s = "<!DOCTYPE html><html><body>Go to <a href='config'>configure page</a></body></html>";
-    server.send(200, "text/html", s);
+
+    String page = "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'/>";
+    page += "<style>table{border-collapse:collapse;}td,th{border:1px solid #ccc;padding:4px;}button{padding:4px 8px;}</style>";
+    page += "<script>function upd(){fetch('/state').then(r=>r.json()).then(d=>{for(let i=0;i<d.zones.length;i++){var st=document.getElementById('state'+(i+1));if(st)st.textContent=d.zones[i]?'ON':'OFF';var on=document.getElementById('on'+(i+1));var off=document.getElementById('off'+(i+1));if(on)on.disabled=d.zones[i];if(off)off.disabled=!d.zones[i];}});}function setz(z,s){fetch('/zone?z='+z+'&s='+s).then(()=>setTimeout(upd,500));}window.onload=function(){upd();setInterval(upd,3000);};</script></head><body>";
+    page += "<h1>Zone Controller</h1><table><tr><th>Zone</th><th>Name</th><th>State</th><th>Action</th></tr>";
+    for (uint8_t i = 0; i < numZones; ++i) {
+        page += String("<tr><td>") + String(i + 1) + "</td><td>" + ZONE_NAMES[i] + "</td><td id='state" + String(i + 1) + "'>?</td><td><button id='on" + String(i + 1) + "' onclick='setz(" + String(i + 1) + ",1)'>On</button> <button id='off" + String(i + 1) + "' onclick='setz(" + String(i + 1) + ",0)'>Off</button></td></tr>";
+    }
+    page += "</table><p><a href='config'>Configure</a> | <a href='#' onclick=\"fetch('/reboot');return false;\">Reboot</a></p></body></html>";
+    server.send(200, "text/html", page);
+}
+
+void handleState() {
+    String json = "{\"zones\":[";
+    for (uint8_t i = 0; i < numZones; ++i) {
+        if (i) json += ',';
+        json += zoneState[i] ? '1' : '0';
+    }
+    json += "]}";
+    server.send(200, "application/json", json);
+}
+
+void handleZoneSet() {
+    if (!server.hasArg("z") || !server.hasArg("s")) {
+        server.send(400, "text/plain", "Missing args");
+        return;
+    }
+    int z = server.arg("z").toInt();
+    if (z < 1 || z > numZones) {
+        server.send(400, "text/plain", "Invalid zone");
+        return;
+    }
+    String val = server.arg("s");
+    bool st = val == "1" || val.equalsIgnoreCase("on") || val.equalsIgnoreCase("open");
+    zoneState[z - 1] = st;
+    stateChanged = true;
+    lastChangeTime = millis();
+    applyZones();
+    server.send(200, "text/plain", "OK");
+}
+
+void handleReboot() {
+    server.send(200, "text/plain", "Rebooting...");
+    delay(100);
+    ESP.restart();
 }
 
 
@@ -481,6 +524,9 @@ void setup() {
     applyZones();
 
     server.on("/", handleRoot);
+    server.on("/state", handleState);
+    server.on("/zone", handleZoneSet);
+    server.on("/reboot", handleReboot);
     server.on("/config", []{ iotWebConf.handleConfig(); });
     server.onNotFound([](){ iotWebConf.handleNotFound(); });
 }
