@@ -61,10 +61,10 @@ DNSServer dnsServer;
 WebServer server(80);
 IotWebConf iotWebConf(THING_NAME, &dnsServer, &server, INITIAL_AP_PASSWORD, CONFIG_VERSION);
 
-char mqttServer[32] = "192.168.50.11";
-char mqttPort[6] = "1883";
-char mqttUser[32] = "rinnai";
-char mqttPass[32] = "rinnai";
+char mqttServer[32] = MQTT_SERVER;
+char mqttPort[6] = MQTT_PORT;
+char mqttUser[32] = MQTT_USER;
+char mqttPass[32] = MQTT_PASSWORD;
 char baseTopic[IOTWEBCONF_WORD_LEN] = DEVICE_NAME;
 char haBaseTopic[64];
 char numZonesStr[4] = "8";

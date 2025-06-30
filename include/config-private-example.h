@@ -10,7 +10,7 @@
 #define WIFI_PASSWORD "your wifi password"
 
 #define MQTT_SERVER "192.168.1.10" // your mqtt broker
-#define MQTT_PORT 1883 // mqtt broker port (default is 1883)
+#define MQTT_PORT "1883" // mqtt broker port (default is 1883)
 #define MQTT_USER "mqqt-user" // your mqtt user 
 #define MQTT_PASSWORD "mqtt-password" // your mqtt user's password
 
