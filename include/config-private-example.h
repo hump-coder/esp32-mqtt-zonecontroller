@@ -1,5 +1,5 @@
-#ifndef CONFIG_PRIVATE_H
-#define CONFIG_PRIVATE_H
+#ifndef CONFIG_PRIVATE_H_EX
+#define CONFIG_PRIVATE_H_EX
 
 //
 // EXAMPLE config-private.h - PLEASE COPY OR RENAME THIS FILE TO config-private.h AND ADD YOUR OWN CONTENT.

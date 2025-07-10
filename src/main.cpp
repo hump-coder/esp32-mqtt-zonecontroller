@@ -528,7 +528,14 @@ void setup() {
     server.on("/zone", handleZoneSet);
     server.on("/reboot", handleReboot);
     server.on("/config", []{ iotWebConf.handleConfig(); });
-    server.onNotFound([](){ iotWebConf.handleNotFound(); });
+   // server.onNotFound([](){ iotWebConf.handleNotFound(); });
+    server.onNotFound([](){
+      Serial.print("404 from ");
+      Serial.print(server.client().remoteIP());
+      Serial.print(": ");
+      Serial.println(server.uri());
+      iotWebConf.handleNotFound();
+    });
 }
 
 void loop() {
